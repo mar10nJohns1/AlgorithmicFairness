@@ -125,7 +125,8 @@ class batch_generator():
     def __init__(self, data, batch_size=64, num_classes=2,
                  num_iterations=5e3, num_features=40, seed=42):
         self._train = data.train
-        self._idcs_train = list(range(0,1000))
+        data_idx = len(data.train['ts'])
+        self._idcs_train = list(range(0,data_idx))
         self._valid = data.valid
         self._test = data.test
         # get image size
