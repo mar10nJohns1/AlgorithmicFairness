@@ -91,6 +91,7 @@ class load_data():
             if target is not None:
                 sample['t'] = np.asarray(target[i], dtype='int32')
             image = imread(row['image'])
+            image = resize(image, output_shape=image_shape, mode='reflect', anti_aliasing=True)
             sample['image'] = image   
             data[row['im_id']] = sample
             if i % 10000 == 0:
