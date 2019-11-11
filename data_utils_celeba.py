@@ -24,31 +24,44 @@ def onehot(t, num_classes):
 
 class load_data():
     # data_train, data_test and le are public
-    def __init__(self, train_path, test_path, image_paths,  target_col, image_shape=(128, 128)):
+    def __init__(self, train_path, valid_path, test_path, image_paths,  target_col, image_shape=(128, 128)):
         train_df = pd.read_csv(train_path)
+        valid_df = pd.read_csv(valid_path)
         test_df = pd.read_csv(test_path)
         image_paths = image_paths
         image_shape = image_shape
-        self._load(train_df, test_df, image_paths, target_col, image_shape)
+        self._load(train_df, valid_df, test_df, image_paths, target_col, image_shape)
         
-    def _load(self, train_df, test_df, image_paths, target_col, image_shape):
+    def _load(self, train_df, valid_df, test_df, image_paths, target_col, image_shape):
         # load train.csv
         path_dict = self._path_to_dict(image_paths) # numerate image paths and make it a dict
         # merge image paths with data frame
         train_image_df = self._merge_image_df(train_df, path_dict)
+        valid_image_df = self._merge_image_df(valid_df, path_dict)
         test_image_df = self._merge_image_df(test_df, path_dict)
         # label encoder-decoder (self. because we need it later)
-        self.le = LabelEncoder().fit(train_image_df[target_col])
+        self.le_train = LabelEncoder().fit(train_image_df[target_col])
         # labels for train
-        t_train = self.le.transform(train_image_df[target_col])
+        t_train = self.le_train.transform(train_image_df[target_col])
+        # label encoder-decoder (self. because we need it later)
+        self.le_valid = LabelEncoder().fit(valid_image_df[target_col])
+        # labels for valid
+        t_valid = self.le_valid.transform(valid_image_df[target_col])
+        # label encoder-decoder (self. because we need it later)
+        self.le_test = LabelEncoder().fit(test_image_df[target_col])
+        # labels for test
+        t_test = self.le_test.transform(test_image_df[target_col])
         # getting data
         print("Loading training data")
         train_data = self._make_dataset(train_image_df, image_shape, target_col, t_train)
+        print("Loading validation data")
+        valid_data = self._make_dataset(valid_image_df, image_shape, target_col, t_valid) 
         print("Loading test data")
-        test_data = self._make_dataset(test_image_df, image_shape, target_col)        
+        test_data = self._make_dataset(test_image_df, image_shape, target_col, t_test)    
         # need to reformat the train for validation split reasons in the batch_generator
-        self.train = self._format_dataset(train_data, for_train=True)
-        self.test = self._format_dataset(test_data, for_train=False)
+        self.train = self._format_dataset(train_data, with_target=True)
+        self.valid = self._format_dataset(valid_data, with_target=True)
+        self.test = self._format_dataset(test_data, with_target=True)
         
 
     def _path_to_dict(self, image_paths):
@@ -66,7 +79,7 @@ class load_data():
         df_image =  pd.concat([image_frame, df], axis=1)
         return df_image
         
-    def _make_dataset(self, df, image_shape, target_col, t_train=None):
+    def _make_dataset(self, df, image_shape, target_col, target=None):
         # make dataset
         data = dict()
         # merge image with 3x64 features
@@ -75,19 +88,16 @@ class load_data():
             sample = dict()
             features = row.drop(['im_id', 'image', target_col], axis=0).values
             sample['attributes'] = features
-            if t_train is not None:
-                sample['t'] = np.asarray(t_train[i], dtype='int32')
+            if target is not None:
+                sample['t'] = np.asarray(target[i], dtype='int32')
             image = imread(row['image'])
-            #image = pad2square(image)
-            #image = resize(image, output_shape=image_shape, mode='reflect', anti_aliasing=True)
-            #image = np.expand_dims(image, axis=2)
             sample['image'] = image   
             data[row['im_id']] = sample
             if i % 10000 == 0:
                 print("\t%d of %d" % (i, len(df)))
         return data
 
-    def _format_dataset(self, df, for_train):
+    def _format_dataset(self, df, with_target):
         # making arrays with all data in, is nessesary when doing validation split
         data = dict()
         value = list(df.values())[0]
@@ -95,7 +105,7 @@ class load_data():
         data['images'] = np.zeros(img_tot_shp, dtype='float32')
         feature_tot_shp = (len(df), 40)
         data['attributes'] = np.zeros(feature_tot_shp, dtype='float32')
-        if for_train:
+        if with_target:
             data['ts'] = np.zeros((len(df),), dtype='int32')
         else:
             data['ids'] = np.zeros((len(df),), dtype='int32')
@@ -103,7 +113,7 @@ class load_data():
             key, value = pair
             data['images'][i] = value['image']
             data['attributes'][i] = value['attributes']
-            if for_train:
+            if with_target:
                 data['ts'][i] = value['t']
             else:
                 data['ids'][i] = int(key[:-4])
@@ -112,8 +122,10 @@ class load_data():
     
 class batch_generator():
     def __init__(self, data, batch_size=64, num_classes=2,
-                 num_iterations=5e3, num_features=40, seed=42, val_size=0.1):
+                 num_iterations=5e3, num_features=40, seed=42):
         self._train = data.train
+        self._idcs_train = list(range(0,1000))
+        self._valid = data.valid
         self._test = data.test
         # get image size
         value = self._train['images'][0]
@@ -123,31 +135,7 @@ class batch_generator():
         self._num_iterations = num_iterations
         self._num_features = num_features
         self._seed = seed
-        self._val_size = val_size
-        self._valid_split()
 
-    def _valid_split(self):
-        #from sklearn.cross_validation import StratifiedShuffleSplit
-        # cross_validation -> now called: model_selection
-        # https://stackoverflow.com/questions/30667525/importerror-no-module-named-sklearn-cross-validation
-    
-        #self._idcs_train, self._idcs_valid =next(iter(
-        #    StratifiedShuffleSplit(#self._train['ts'],
-        #                           n_iter=1, # Changed to n_splits in model_selection
-        #                           #n_splits=1,
-        #                           test_size=self._val_size,
-        #                           random_state=self._seed)))
-        
-        # Updated to use: model_selection
-        sss = StratifiedShuffleSplit(
-            n_splits=1,
-            test_size=self._val_size,
-            random_state=self._seed
-        ).split(
-            np.zeros(self._train['ts'].shape),  # Needed in StratifiedShuffleSplit for nothing...
-            self._train['ts']
-        )
-        self._idcs_train, self._idcs_valid = next(iter(sss))
         
     def _shuffle_train(self):
         np.random.shuffle(self._idcs_train)
@@ -157,19 +145,16 @@ class batch_generator():
         batch_holder = dict()
         batch_holder['attributes'] = np.zeros((self._batch_size, self._num_features), dtype='float32')
         batch_holder['images'] = np.zeros(tuple([self._batch_size] + self._image_shape), dtype='float32')
-        if (purpose == "train") or (purpose == "valid"):
-            batch_holder['ts'] = np.zeros((self._batch_size, self._num_classes), dtype='float32')          
-        else:
-            batch_holder['ids'] = []
+        batch_holder['ts'] = np.zeros((self._batch_size, self._num_classes), dtype='float32')          
         return batch_holder
 
     def gen_valid(self):
         batch = self._batch_init(purpose='valid')
         i = 0
-        for idx in self._idcs_valid:
-            batch['attributes'][i] = self._train['attributes'][idx]
-            batch['images'][i] = self._train['images'][idx]
-            batch['ts'][i] = onehot(np.asarray([self._train['ts'][idx]], dtype='float32'), self._num_classes)
+        for idx in range(len(self._valid['ts'])):
+            batch['attributes'][i] = self._valid['attributes'][idx]
+            batch['images'][i] = self._valid['images'][idx]
+            batch['ts'][i] = onehot(np.asarray([self._valid['ts'][idx]], dtype='float32'), self._num_classes)
             i += 1
             if i >= self._batch_size:
                 yield batch, i
@@ -184,16 +169,19 @@ class batch_generator():
     def gen_test(self):
         batch = self._batch_init(purpose='test')
         i = 0
-        for idx in range(len(self._test['ids'])):
+        for idx in range(len(self._test['ts'])):
             batch['attributes'][i] = self._test['attributes'][idx]
             batch['images'][i] = self._test['images'][idx]
-            batch['ids'].append(self._test['ids'][idx])
+            batch['ts'][i] = onehot(np.asarray([self._test['ts'][idx]], dtype='float32'), self._num_classes)
             i += 1
             if i >= self._batch_size:
                 yield batch, i
                 batch = self._batch_init(purpose='test')
                 i = 0
         if i != 0:
+            batch['ts'] = batch['ts'][:i]
+            batch['attributes'] = batch['attributes'][:i]
+            batch['images'] = batch['images'][:i]
             yield batch, i       
 
     def gen_train(self):
