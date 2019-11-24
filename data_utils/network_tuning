@@ -1,0 +1,114 @@
+def tune_architecture(data_train, data_valid, layers, activations, leraning_rate, optimizer, batch_size, epochs, IMAGE_SHAPE, conv_out_channels,kernel_size, conv_stride, maxpool, dropout, batchnorm):
+    
+    height, width, channels = IMAGE_SHAPE
+
+    conv_pad    = 0       # <-- Padding
+
+    def conv_dim(dim_size):
+        return int(dim_size - kernel_size + 2 * conv_pad / conv_stride + 1)
+
+    conv1_h = conv_dim(height)//maxpool
+    conv1_w = conv_dim(width)//maxpool
+    # Keep track of features to output layer
+    features_cat_size = int(conv_out_channels * conv1_h * conv1_w)
+
+    if layers > 1:
+        conv2_h = conv_dim(conv1_h)//maxpool
+        conv2_w = conv_dim(conv1_w)//maxpool
+
+        features_cat_size = int(conv_out_channels*2 * conv2_h * conv2_w)
+
+    if layers > 2:
+        conv3_h = conv_dim(conv2_h)//maxpool
+        conv3_w = conv_dim(conv2_w)//maxpool
+
+        features_cat_size = int(conv_out_channels*4 * conv3_h * conv3_w)
+
+    if layers > 3:
+        conv4_h = conv_dim(conv3_h)//maxpool
+        conv4_w = conv_dim(conv3_w)//maxpool
+
+        features_cat_size = int(conv_out_channels*8 * conv4_h * conv4_w)
+        
+
+    class Net(nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+
+            self.conv_1 = Conv2d(in_channels=channels,
+                                 out_channels=conv_out_channels,
+                                 kernel_size=kernel_size,
+                                 stride=conv_stride,
+                                 padding=conv_pad)
+
+
+            self.conv_2 = Conv2d(in_channels=conv_out_channels,
+                                 out_channels=conv_out_channels*2,
+                                 kernel_size=kernel_size,
+                                 stride=conv_stride,
+                                 padding=conv_pad)
+            
+            self.conv_3 = Conv2d(in_channels=conv_out_channels*2,
+                                 out_channels=conv_out_channels*4,
+                                 kernel_size=kernel_size,
+                                 stride=conv_stride,
+                                 padding=conv_pad)
+            
+            self.conv_4 = Conv2d(in_channels=conv_out_channels*4,
+                                 out_channels=conv_out_channels*8,
+                                 kernel_size=kernel_size,
+                                 stride=conv_stride,
+                                 padding=conv_pad)
+            
+            self.pool = nn.MaxPool2d(maxpool,maxpool)
+
+            self.dropout = Dropout2d(p=dropout)
+
+            self.batch1 = BatchNorm2d(conv_out_channels)
+            self.batch2 = BatchNorm2d(conv_out_channels*2)
+            self.batch3 = BatchNorm2d(conv_out_channels*4)
+            self.batch4 = BatchNorm2d(conv_out_channels*8)
+
+
+            self.l_out = Linear(in_features=features_cat_size,
+                                out_features=2,
+                                bias=False)
+
+        def forward(self, x_img):
+            features = []
+            out = {}
+
+            ## Convolutional layer ##
+            # - Change dimensions to fit the convolutional layer 
+            # - Apply Conv2d
+            # - Use an activation function
+            # - Change dimensions s.t. the features can be used in the final FFNN output layer
+
+            features_img = self.pool(tanh(self.conv_1(x_img)))
+            features_img = self.batch1(features_img)
+            
+            if layers > 1:
+                features_img = self.dropout(features_img)
+                features_img = self.pool(tanh(self.conv_2(features_img)))
+                features_img = self.batch2(features_img)
+                
+            if layers > 2:
+                features_img = self.dropout(features_img)
+                features_img = self.pool(tanh(self.conv_3(features_img)))
+                features_img = self.batch3(features_img)
+                
+            if layers > 3:
+                features_img = self.dropout(features_img)
+                features_img = self.pool(tanh(self.conv_4(features_img)))
+                features_img = self.batch4(features_img)
+            
+
+            features_img = features_img.view(-1, features_cat_size)
+
+            ## Output layer where all features are in use ##
+
+            out['out'] = self.l_out(features_img)
+            return out
+
+        net = Net()
+        return net
