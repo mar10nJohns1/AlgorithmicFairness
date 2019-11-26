@@ -38,12 +38,13 @@ class CelebADataset(Dataset):
         img_name = os.path.join(self.image_path,
                                 self.attributes.iloc[idx, 0])
         image = imread(img_name)
-        image = resize(image, output_shape=self.image_shape, mode='reflect', anti_aliasing=True)
+        #image = resize(image, output_shape=self.image_shape, mode='reflect', anti_aliasing=True)
         target = self.target[idx]
         image = image.transpose((2, 0, 1))
         attributes = self.attributes.iloc[idx,1:-1]
         attributes = np.array(attributes).astype('float')
-        sample = {'image': torch.from_numpy(image.astype('float32')), 'target': torch.from_numpy(target), 'attributes':torch.from_numpy(attributes)}
+        file = self.attributes.iloc[idx,0]
+        sample = {'file': file, 'image': torch.from_numpy(image.astype('float32')), 'target': torch.from_numpy(target), 'attributes':torch.from_numpy(attributes)}
 
         return sample
         
