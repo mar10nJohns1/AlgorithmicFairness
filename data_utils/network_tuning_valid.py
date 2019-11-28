@@ -207,12 +207,12 @@ def tune_train(net, data_train, data_valid, optimizer, learning_rate, weight_dec
     for epoch in range(num_epochs):
         print('Epoch: ', epoch)
         for i, batch_train in enumerate(batch_gen_train):
-            j+=1
             
-            if j%600 == 0:
+            if j%300 == 0:
                 l, a = tune_valid(net, data_valid, batch_size)
                 valid_loss.append(l)
                 valid_accs.append(a)
+                net.train()
              # Train network
             output = net(**get_input(batch_train))
             labels_argmax = torch.max(get_labels(batch_train), 1)[1]
@@ -226,6 +226,7 @@ def tune_train(net, data_train, data_valid, optimizer, learning_rate, weight_dec
             batch_loss.backward()
             optimizer.step()
             
+            j+=1
             
     return net, train_loss, train_accs, valid_loss, valid_accs
 
