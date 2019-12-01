@@ -21,6 +21,7 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 import numpy as np
+import math
 
 def tune_architecture(layers, activations, IMAGE_SHAPE, conv_out_channels, kernel_size, conv_stride, maxpool, dropout, batchnorm=False):
     
@@ -29,7 +30,7 @@ def tune_architecture(layers, activations, IMAGE_SHAPE, conv_out_channels, kerne
     conv_pad    = 0       # <-- Padding
 
     def conv_dim(dim_size):
-        return int(dim_size - kernel_size + 2 * conv_pad / conv_stride + 1)
+        return int(math.ceil(dim_size - kernel_size + 2 * conv_pad / conv_stride + 1))
 
     conv1_h = conv_dim(height)//maxpool
     conv1_w = conv_dim(width)//maxpool
@@ -43,17 +44,21 @@ def tune_architecture(layers, activations, IMAGE_SHAPE, conv_out_channels, kerne
         features_cat_size = int(conv_out_channels*2 * conv2_h * conv2_w)
 
     if layers > 2:
-        conv3_h = conv_dim(conv2_h)//maxpool
-        conv3_w = conv_dim(conv2_w)//maxpool
+        conv3_h = conv_dim(conv2_h)
+        conv3_w = conv_dim(conv2_w)
 
         features_cat_size = int(conv_out_channels*4 * conv3_h * conv3_w)
 
     if layers > 3:
-        conv4_h = conv_dim(conv3_h)//maxpool
-        conv4_w = conv_dim(conv3_w)//maxpool
+        conv4_h = conv_dim(conv3_h)
+        conv4_w = conv_dim(conv3_w)
 
         features_cat_size = int(conv_out_channels*8 * conv4_h * conv4_w)
-        
+        print(features_cat_size)
+        print(conv3_h)
+        print(conv3_w)
+        print(conv4_h)
+        print(conv4_w)
 
     class Net(nn.Module):
         def __init__(self):
@@ -124,13 +129,13 @@ def tune_architecture(layers, activations, IMAGE_SHAPE, conv_out_channels, kerne
                 
             if layers > 2:
                 features_img = self.dropout(features_img)
-                features_img = self.pool(activations[2](self.conv_3(features_img)))
+                features_img = activations[2](self.conv_3(features_img))
                 if batchnorm:
                     features_img = self.batch3(features_img)
                 
             if layers > 3:
                 features_img = self.dropout(features_img)
-                features_img = self.pool(activations[3](self.conv_4(features_img)))
+                features_img = activations[3](self.conv_4(features_img))
                 if batchnorm:
                     features_img = self.batch4(features_img)
             
