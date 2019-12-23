@@ -4,13 +4,13 @@ Deep Learning (DL) algorithms are increasingly used in products and services tha
 
 ## Code
 #### Folders
-The Data folder holds all necessary datasets to reconstruct the training of the models, except for the pictures itself. train.csv, valid.csv and test.csv are used to train and evaluate the model on specific attributes. These are constructed from the two txt-files, list_attr_celeba.txt and list_eval_partition.txt. The pictures can be found on CelebA’s official Google Drive folder under Aligned Images: (link)
+The _Data_ folder holds all necessary datasets to reconstruct the training of the models, except for the pictures itself. _train.csv, valid.csv_ and _test.csv_ are used to train and evaluate the model on specific attributes. These are constructed from the two txt-files, _list_attr_celeba.txt_ and _list_eval_partition.txt_. The pictures can be found on CelebA’s official Google Drive folder under Aligned Images: [CelebA dataset](https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?usp=sharing)
 
-The data_utils folder holds important utility functions used when training the model. data_utils_celeba_pytorch5.py is the dataloader used to construct the batches on which the model is training. The network_tuning_valid.py holds utility functions for creating the model architecture, training the model, running validation, etc. These functions are called when training the model. network_tuning_valid_copy.py is the script used when training the model with a weighted loss function to alleviate the identified biases. 
+The _data_utils_ folder holds important utility functions used when training the model. _data_utils_celeba_pytorch5.py_ is the dataloader used to construct the batches on which the model is training. The _network_tuning_valid.py_ holds utility functions for creating the model architecture, training the model, running validation, etc. These functions are called when training the model. _network_tuning_valid_copy.py_ is the script used when training the model with a weighted loss function to alleviate the identified biases. 
 
-models contains all the models which has been trained on Amazon Web Services (AWS) with dataframes for each run containing all results for every model included in the run. This means, that results for all eight models saved in run2 is summarized in the dataframe called run2_df.pkl. 
+_models_ contains all the models which has been trained on Amazon Web Services (AWS) with dataframes for each run containing all results for every model included in the run. This means, that results for all eight models saved in _run2_ is summarized in the dataframe called _run2_df.pkl_. 
 
-tuning comprise all the scripts that has been used in the different training rounds, i.e. the ones contained in the models folder under aws_models. Basically, each script runs the training rounds for the different models in each round, and prints all results for each model into a dataframe, which is also saved as a pickle file in the end. 
+_tuning_ comprise all the scripts that has been used in the different training rounds, i.e. the ones contained in the _models_ folder under _aws_models_. Basically, each script runs the training rounds for the different models in each round, and prints all results for each model into a dataframe, which is also saved as a pickle file in the end. 
 
 
 #### Scripts
