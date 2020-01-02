@@ -15,6 +15,14 @@ _tuning_ comprise all the scripts that has been used in the different training r
 
 #### Scripts
 
+_Project_ calls the dataloader function and splits the dataset into train,validation and test. Then it defines the model and trains the model (happens on AWS). The trained model is loaded and the model is tested for bias against the remanining 39 attributes. 
+
+_mean_accuracy_in_40_attributes_ calculates the mean accuracy over all the 40 attributes in the dataset. Each variables is used as a target variable.
+
+_training_with_weigthed_loss implements a new loss function which adds a weight to the loss function in the training resulting in higher punishment for wrong predictions of under represented groups
+
+_Upsampling_ contains the second bias alleviation method, upsampling, where pictures from underepresented groups are upsampled to the most presented group. Furthermore, data augmentation are added to the pictures. 
+
 ## Contributors
 * Martin Johnsen ([mar10nJohns1](https://github.com/mar10nJohns1))
 * Charlotte Theisen 
